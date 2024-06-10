@@ -24,6 +24,6 @@ Click on the releases tab to download the latest version of the application. It'
 
 Upon running the application, you will be brought into the global chat. This is where you meet people using the peer-to-peer network.
 
-### Messaging a specific node
+### Messaging a specific node (wip)
 
 There will be a file generated upon launching the application. This file will be known as a "tagline", this will include all the route to your friends' network address which will then be used for you to communicate. Remember, both peers need to have each others address in the tagline inorder to communicate.
