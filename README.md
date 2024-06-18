@@ -1,10 +1,10 @@
-# Decentralized Peer-to-Peer Network using Kademlia DHT
+# go2pee: decentralized irs using pubsub
 
 ## Abstract
 
 Decentralized networks is a hot topic in the current era of digitalisation, especially where privacy and security meets its highest requirements.
 
-The program I made named "go2pee", is a terminal-based peer to peer messaging network inspired by the infamous IRC Weechat (internet relay chat), which was designed as a client-server model. This project was made so that I could redesign the classic IRC into a peer to peer network.
+The program I made named "go2pee", is a terminal-based peer to peer messaging network inspired by the infamous IRC Weechat (internet relay chat), which was designed as a client-server model. This project was made so that I could blend the features of IRC and Slack to make a p2p workspace.
 
 <br>
 
@@ -12,9 +12,18 @@ The program I made named "go2pee", is a terminal-based peer to peer messaging ne
 
 ## Overview
 
-The program was implemented using Kademlia's DHT algorithm, which is a distributed hash table for user discovery and message routing without relying on central servers.
+The program was implemented using Pub-Sub pattern, which is a messaging system where a node in a network is able to share messages asynchronously between senders and receivers via a subscribe system. Essentially, when you send a message to a topic, every that is subscribed to the topic will receive your message.
 
 The codebase is written in Golang.
+
+## Features:
+
+- [x] Global chat
+- [x] User status
+- [ ] Store old messages locally
+- [ ] Switch rooms
+- [ ] Local bot
+- [ ] Reminders and todo list
 
 ## Installation
 
@@ -22,8 +31,8 @@ Click on the releases tab to download the latest version of the application. It'
 
 ## Usage
 
-Upon running the application, you will be brought into the global chat. This is where you meet people using the peer-to-peer network.
+Upon running the application, you will be brought into the global chat. This is where you meet people in your network. Make sure you are on the same room to text each other.
 
-### Messaging a specific node (wip)
-
-There will be a file generated upon launching the application. This file will be known as a "tagline", this will include all the route to your friends' network address which will then be used for you to communicate. Remember, both peers need to have each others address in the tagline inorder to communicate.
+```
+go2pee.exe --name="john" --room="doe"
+```

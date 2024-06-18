@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -13,20 +12,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
-	"github.com/rivo/tview"
-)
-
-type post struct {
-	username string
-	message  string
-	time     string
-}
-
-var (
-	posts   []post
-	app     *tview.Application
-	history *tview.TextView
-	input   *tview.InputField
 )
 
 // DiscoveryInterval is how often we re-publish our mDNS records.
@@ -37,7 +22,7 @@ const DiscoveryServiceTag = "global-chat"
 
 
 func main() {
-	nickFlag := flag.String("nick", "", "nickname to use in chat. will be generated if empty")
+	nameFlag := flag.String("name", "", "nickname to use in chat. will be generated if empty")
 	roomFlag := flag.String("room", "skibidi", "name of chat room to join")
 	flag.Parse()
 
@@ -57,14 +42,14 @@ func main() {
 		panic(err)
 	}
 
-	nick := *nickFlag
-	if len(nick) == 0 {
-		nick = defaultNick(h.ID())
+	name := *nameFlag
+	if len(name) == 0 {
+		name = defaultName(h.ID())
 	}
 
 	room := *roomFlag
 
-	cr, err := JoinChatRoom(ctx, ps, h.ID(), nick, room)
+	cr, err := JoinChatRoom(ctx, ps, h.ID(), name, room)
 	if err != nil {
 		panic(err)
 	}
@@ -73,10 +58,6 @@ func main() {
 	ui := NewChatUI(cr)
 	if err = ui.Run(); err != nil {
 		printErr("error running text UI: %s", err)
-	}
-
-	if err := app.Run(); err != nil {
-		log.Fatal(err)
 	}
 }
 
@@ -91,7 +72,7 @@ func printErr(m string, args ...interface{}) {
 }
 
 
-func defaultNick(p peer.ID) string {
+func defaultName(p peer.ID) string {
 	return fmt.Sprintf("%s-%s", os.Getenv("USER"), shortID(p))
 }
 
@@ -100,7 +81,6 @@ type discoveryNotifee struct {
 }
 
 func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
-	fmt.Printf("discovered new peer %s\n", pi.ID)
 	err := n.h.Connect(context.Background(), pi)
 	if err != nil {
 		fmt.Printf("error connecting to peer %s: %s\n", pi.ID, err)

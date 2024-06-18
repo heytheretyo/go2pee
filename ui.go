@@ -23,6 +23,17 @@ func NewChatUI(cr *ChatRoom) *ChatUI {
 
 	app := tview.NewApplication()
 
+	peersList := tview.NewList()
+	peersList.SetBorder(true).SetTitle("active users")
+
+	history := tview.NewTextView().
+		SetDynamicColors(true).
+		SetScrollable(true).
+		SetChangedFunc(func() {
+			app.Draw()
+		})
+	history.SetBorder(true).SetTitle("global chat")
+
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		row, _ := history.GetScrollOffset()
 
@@ -35,22 +46,8 @@ func NewChatUI(cr *ChatRoom) *ChatUI {
 		return event
 	})
 
-
-
-	peersList := tview.NewList()
-	peersList.SetBorder(true).SetTitle("active users")
-
-	history = tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetChangedFunc(func() {
-			app.Draw()
-		})
-	history.SetBorder(true).SetTitle("global chat")
-
-
 	inputCh := make(chan string, 32)
-	input = tview.NewInputField().
+	input := tview.NewInputField().
 		SetLabel("@" + cr.nick + ":").
 		SetFieldWidth(0).
 		SetFieldBackgroundColor(tcell.ColorDefault)
@@ -66,6 +63,9 @@ func NewChatUI(cr *ChatRoom) *ChatUI {
 
 		if line == "/quit" {
 			app.Stop()
+			return
+		} else if (line == "/clear"){
+			history.SetText("")
 			return
 		}
 
@@ -97,15 +97,12 @@ func NewChatUI(cr *ChatRoom) *ChatUI {
 	}
 }
 
-
-
 func (ui *ChatUI) Run() error {
 	go ui.handleEvents()
 	defer ui.end()
 
 	return ui.app.Run()
 }
-
 
 func (ui *ChatUI) end() {
 	ui.doneCh <- struct{}{}
@@ -125,12 +122,12 @@ func (ui *ChatUI) refreshPeers() {
 }
 
 func (ui *ChatUI) displayChatMessage(cm *ChatMessage) {
-	prompt := withColor("green", fmt.Sprintf("<%s>:", cm.SenderNick))
+	prompt := withColor("green", fmt.Sprintf("%s @%s:", time.Now().Format("15:04"), cm.SenderNick))
 	fmt.Fprintf(ui.msgW, "%s %s\n", prompt, cm.Message)
 }
 
 func (ui *ChatUI) displaySelfMessage(msg string) {
-	prompt := withColor("yellow", fmt.Sprintf("<%s>:", ui.cr.nick))
+	prompt := withColor("yellow", fmt.Sprintf("%s @%s:", time.Now().Format("15:04"),ui.cr.nick))
 	fmt.Fprintf(ui.msgW, "%s %s\n", prompt, msg)
 }
 
