@@ -1,11 +1,18 @@
 package main
 
 import (
+	"context"
+	"flag"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
-	"github.com/gdamore/tcell/v2"
+	"github.com/libp2p/go-libp2p"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"github.com/rivo/tview"
 )
 
@@ -22,102 +29,86 @@ var (
 	input   *tview.InputField
 )
 
+// DiscoveryInterval is how often we re-publish our mDNS records.
+const DiscoveryInterval = time.Hour
+
+// DiscoveryServiceTag is used in our mDNS advertisements to discover other chat peers.
+const DiscoveryServiceTag = "global-chat"
+
 
 func main() {
-	initializeApp()
-	initializeInterface()
-	initializeInputHandling()
+	nickFlag := flag.String("nick", "", "nickname to use in chat. will be generated if empty")
+	roomFlag := flag.String("room", "skibidi", "name of chat room to join")
+	flag.Parse()
+
+	ctx := context.Background()
+	// create a new libp2p Host that listens on a random TCP port
+	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	if err != nil {
+		panic(err)
+	}
+
+	ps, err := pubsub.NewGossipSub(ctx, h)
+	if err != nil {
+		panic(err)
+	}
+
+	if err := setupDiscovery(h); err != nil {
+		panic(err)
+	}
+
+	nick := *nickFlag
+	if len(nick) == 0 {
+		nick = defaultNick(h.ID())
+	}
+
+	room := *roomFlag
+
+	cr, err := JoinChatRoom(ctx, ps, h.ID(), nick, room)
+	if err != nil {
+		panic(err)
+	}
+
+	// draw the UI
+	ui := NewChatUI(cr)
+	if err = ui.Run(); err != nil {
+		printErr("error running text UI: %s", err)
+	}
 
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func initializeApp() {
-	app = tview.NewApplication()
 
-	posts = []post{
-		{username: "jeb", message: "hi, what's up?", time: "14:41"},
-		{username: "monty", message: "not much", time: "14:43"},
+func shortID(p peer.ID) string {
+	pretty := p.String()
+	return pretty[len(pretty)-8:]
+}
+
+func printErr(m string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, m, args...)
+}
+
+
+func defaultNick(p peer.ID) string {
+	return fmt.Sprintf("%s-%s", os.Getenv("USER"), shortID(p))
+}
+
+type discoveryNotifee struct {
+	h host.Host
+}
+
+func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
+	fmt.Printf("discovered new peer %s\n", pi.ID)
+	err := n.h.Connect(context.Background(), pi)
+	if err != nil {
+		fmt.Printf("error connecting to peer %s: %s\n", pi.ID, err)
 	}
 }
 
-func initializeInterface() {
-	sidebar := tview.NewList().
-		AddItem("> jeb", "11ms", 0, nil).
-		AddItem("> monty", "22ms", 0, nil)
-	sidebar.SetBorder(true).SetTitle("active users")
 
-	history = tview.NewTextView().
-		SetDynamicColors(true).
-		SetScrollable(true).
-		SetChangedFunc(func() {
-			app.Draw()
-		})
-	history.SetBorder(true).SetTitle("global chat")
-
-	updateHistory()
-
-	input = tview.NewInputField().
-		SetLabel("@node1: ").
-		SetFieldWidth(0).
-		SetFieldBackgroundColor(tcell.ColorDefault).
-		SetDoneFunc(handleInput)
-	input.SetBorder(true)
-
-	chatLayout := tview.NewFlex().
-		SetDirection(tview.FlexRow).
-		AddItem(history, 0, 1, false).
-		AddItem(input, 3, 1, true)
-
-	root := tview.NewFlex().
-		AddItem(chatLayout, 0, 3, true).
-		AddItem(sidebar, 25, 1, false)
-
-	app.SetRoot(root, true).SetFocus(input)
-}
-
-func initializeInputHandling() {
-	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
-		case tcell.KeyUp:
-			scrollHistory(-1)
-		case tcell.KeyDown:
-			scrollHistory(1)
-		case tcell.KeyPgUp:
-			scrollHistory(-10)
-		case tcell.KeyPgDn:
-			scrollHistory(10)
-		}
-		return event
-	})
-}
-
-func updateHistory() {
-	history.Clear()
-	for _, m := range posts {
-		fmt.Fprintf(history, "[yellow]%s [white]<%s> %s\n", m.time, m.username, m.message)
-	}
-	history.ScrollToEnd()
-}
-
-func handleInput(key tcell.Key) {
-	if key == tcell.KeyEnter {
-		text := input.GetText()
-		if text != "" {
-			newMessage := post{
-				username: "alice",
-				message:  text,
-				time:     time.Now().Format("15:04"),
-			}
-			posts = append(posts, newMessage)
-			updateHistory()
-			input.SetText("")
-		}
-	}
-}
-
-func scrollHistory(offset int) {
-	row, _ := history.GetScrollOffset()
-	history.ScrollTo(row+offset, 0)
+func setupDiscovery(h host.Host) error {
+	s := mdns.NewMdnsService(h, DiscoveryServiceTag, &discoveryNotifee{h: h})
+	return s.Start()
 }
